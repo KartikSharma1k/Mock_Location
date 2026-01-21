@@ -70,8 +70,8 @@ class LocationViewModel @Inject constructor(
     fun setSpotMockLocation(){
         viewModelScope.launch {
             try {
-                val success = mockController.setMockLocation(28.62630, 77.38158)
-                _locationState.value = if (success) "Mock location set to Spot: 28.62630, 77.38158" else "Failed to set mock location"
+                val success = mockController.setMockLocation(28.627997, 77.381426)
+                _locationState.value = if (success) "Mock location set to Spot: 28.627997, 77.381426" else "Failed to set mock location"
             } catch (e: Exception) {
                 _locationState.value = "Error: ${e.message}"
             }
@@ -100,6 +100,39 @@ class LocationViewModel @Inject constructor(
         }
     }
 
+    fun setNishantLocation(){
+        viewModelScope.launch {
+            try {
+                val success = mockController.setMockLocation(28.6338641832752, 77.43084920262324)
+                _locationState.value = if (success) "Mock location set to Nishant: 28.6338641832752, 77.43084920262324" else "Failed to set mock location"
+            } catch (e: Exception) {
+                _locationState.value = "Error: ${e.message}"
+            }
+        }
+    }
+
+    fun setGymLocation(){
+        viewModelScope.launch {
+            try {
+                val success = mockController.setMockLocation(28.63087229646094, 77.43443316990961)
+                _locationState.value = if (success) "Mock location set to Gym: 28.63087229646094, 77.43443316990961" else "Failed to set mock location"
+            } catch (e: Exception) {
+                _locationState.value = "Error: ${e.message}"
+            }
+        }
+    }
+
+    fun setRimjhimLocation(){
+        viewModelScope.launch {
+            try {
+                val success = mockController.setMockLocation(28.618670618203534, 77.41855650018451)
+                _locationState.value = if (success) "Mock location set to Rimjhim: 28.618670618203534, 77.41855650018451" else "Failed to set mock location"
+            } catch (e: Exception) {
+                _locationState.value = "Error: ${e.message}"
+            }
+        }
+    }
+
     fun disableMocking() {
         viewModelScope.launch {
             try {
@@ -111,9 +144,7 @@ class LocationViewModel @Inject constructor(
                 _locationState.value = "Error: ${e.message}"
             }
         }
-
         forceLocationRefresh()
-
     }
 
     fun forceLocationRefresh() {
