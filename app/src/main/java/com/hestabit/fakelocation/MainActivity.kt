@@ -11,8 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -23,6 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.hestabit.fakelocation.ui.theme.FakeLocationTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -34,7 +41,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             FakeLocationTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MockLocationScreen()
+                    AppNavigator(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
@@ -42,16 +49,36 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MockLocationScreen(viewModel: LocationViewModel = hiltViewModel()) {
+fun AppNavigator(modifier : Modifier = Modifier){
+
+    val controller = rememberNavController()
+
+    NavHost(navController = controller, startDestination = "home", modifier = modifier){
+        composable(route = "home"){
+            MockLocationScreen(){
+                controller.navigate("map")
+            }
+        }
+
+        composable(route = "map"){
+            MapScreen()
+        }
+    }
+}
+
+@Composable
+fun MockLocationScreen(viewModel: LocationViewModel = hiltViewModel(), showMap: () -> Unit) {
     val locationState by viewModel.locationState.collectAsState()
     val routeProgress by viewModel.routeProgress.collectAsState()
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+    Box(contentAlignment = Alignment.BottomEnd, modifier = Modifier.fillMaxSize()) {
+
+
         LazyColumn(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(16.dp)
+                .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
 
             item {
                 Spacer(modifier = Modifier.padding(top = 100.dp))
@@ -249,6 +276,12 @@ fun MockLocationScreen(viewModel: LocationViewModel = hiltViewModel()) {
             item {
                 Spacer(modifier = Modifier.padding(bottom = 100.dp))
             }
+        }
+
+        FloatingActionButton(showMap) {
+
+            Icon(imageVector = Icons.Default.LocationOn, "map icon")
+
         }
     }
 }
