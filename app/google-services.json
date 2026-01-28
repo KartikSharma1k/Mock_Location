@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "186342260971",
+    "project_id": "fake-location-df337",
+    "storage_bucket": "fake-location-df337.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:186342260971:android:68804459503eee9a467eae",
+        "android_client_info": {
+          "package_name": "com.hestabit.fakelocation"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhRXlXGblnfFKuxPokCpHPC1FyDUbwTwI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

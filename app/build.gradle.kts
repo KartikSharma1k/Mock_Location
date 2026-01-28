@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.dagger.hilt.android")
     id("kotlin-kapt")
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -55,6 +56,22 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
+    
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
+
+    // Navigation
+    implementation(libs.androidx.navigation.compose)
+
+    // Splash Screen
+    implementation(libs.androidx.core.splashscreen)
+
+    implementation(libs.kotlinx.coroutines.play.services)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
