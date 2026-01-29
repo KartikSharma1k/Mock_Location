@@ -5,16 +5,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,90 +52,126 @@ fun DashboardScreen(
         position = CameraPosition.fromLatLngZoom(startPos, 10f)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            onMapClick = { viewModel.onMapClick(it) },
-            properties = MapProperties(isMyLocationEnabled = true),
-            uiSettings = MapUiSettings(myLocationButtonEnabled = true)
-        ) {
-            uiState.startLocation?.let {
-                Marker(
-                    state = MarkerState(position = it),
-                    title = "Start"
-                )
-            }
-            uiState.destinationLocation?.let {
-                Marker(
-                    state = MarkerState(position = it),
-                    title = "Destination"
-                )
-            }
-            
-            if (uiState.routePoints.isNotEmpty()) {
-                Polyline(points = uiState.routePoints, color = MaterialTheme.colorScheme.primary)
-            }
-        }
-
-        // Overlay Controls
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(16.dp)
-                .fillMaxWidth()
-        ) {
-            // Instructions or Status
-            if (uiState.startLocation == null) {
-                Text(
-                    text = "Tap to select Start Location",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .padding(8.dp),
-                         // Background manually applied effectively via Surface or Box would be better
-                         // For simplicity relying on basic text
-                )
-            } else if (uiState.destinationLocation == null) {
-                Text(
-                    text = "Tap to select Destination",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                 Button(
-                    onClick = { viewModel.clearMap() },
-                    enabled = !uiState.isMocking && uiState.startLocation != null
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp)
+    ) {
+        item {
+            ElevatedCard(onClick = { /* TODO: Implement map click behaviour */ }, modifier = Modifier.fillMaxWidth().height(200.dp) ) {
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState,
+                    onMapClick = { viewModel.onMapClick(it) },
+                    properties = MapProperties(isMyLocationEnabled = true),
+                    uiSettings = MapUiSettings(myLocationButtonEnabled = true, zoomControlsEnabled = false)
                 ) {
-                    Icon(Icons.Default.Clear, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Clear")
-                }
-
-                Button(
-                    onClick = { viewModel.startMocking() },
-                    enabled = !uiState.isMocking && uiState.routePoints.isNotEmpty() // Needs route
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Start")
-                }
-                
-                 Button(
-                    onClick = { viewModel.stopMocking() },
-                    enabled = uiState.isMocking
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Stop")
+//                    uiState.startLocation?.let {
+//                        Marker(
+//                            state = MarkerState(position = it),
+//                            title = "Start"
+//                        )
+//                    }
+//                    uiState.destinationLocation?.let {
+//                        Marker(
+//                            state = MarkerState(position = it),
+//                            title = "Destination"
+//                        )
+//                    }
+//
+//                    if (uiState.routePoints.isNotEmpty()) {
+//                        Polyline(
+//                            points = uiState.routePoints,
+//                            color = MaterialTheme.colorScheme.primary
+//                        )
+//                    }
                 }
             }
         }
     }
+
+//    Box(modifier = Modifier.fillMaxSize()) {
+//        GoogleMap(
+//            modifier = Modifier.fillMaxSize(),
+//            cameraPositionState = cameraPositionState,
+//            onMapClick = { viewModel.onMapClick(it) },
+//            properties = MapProperties(isMyLocationEnabled = true),
+//            uiSettings = MapUiSettings(myLocationButtonEnabled = true)
+//        ) {
+//            uiState.startLocation?.let {
+//                Marker(
+//                    state = MarkerState(position = it),
+//                    title = "Start"
+//                )
+//            }
+//            uiState.destinationLocation?.let {
+//                Marker(
+//                    state = MarkerState(position = it),
+//                    title = "Destination"
+//                )
+//            }
+//
+//            if (uiState.routePoints.isNotEmpty()) {
+//                Polyline(points = uiState.routePoints, color = MaterialTheme.colorScheme.primary)
+//            }
+//        }
+//
+//        // Overlay Controls
+//        Column(
+//            modifier = Modifier
+//                .align(Alignment.BottomCenter)
+//                .padding(16.dp)
+//                .fillMaxWidth()
+//        ) {
+//            // Instructions or Status
+//            if (uiState.startLocation == null) {
+//                Text(
+//                    text = "Tap to select Start Location",
+//                    style = MaterialTheme.typography.bodyLarge,
+//                    modifier = Modifier
+//                        .padding(8.dp),
+//                         // Background manually applied effectively via Surface or Box would be better
+//                         // For simplicity relying on basic text
+//                )
+//            } else if (uiState.destinationLocation == null) {
+//                Text(
+//                    text = "Tap to select Destination",
+//                    style = MaterialTheme.typography.bodyLarge,
+//                    modifier = Modifier.padding(8.dp)
+//                )
+//            }
+//
+//            Spacer(modifier = Modifier.height(8.dp))
+//
+//            Row(
+//                modifier = Modifier.fillMaxWidth(),
+//                horizontalArrangement = Arrangement.SpaceEvenly
+//            ) {
+//                 Button(
+//                    onClick = { viewModel.clearMap() },
+//                    enabled = !uiState.isMocking && uiState.startLocation != null
+//                ) {
+//                    Icon(Icons.Default.Clear, contentDescription = null)
+//                    Spacer(modifier = Modifier.width(4.dp))
+//                    Text("Clear")
+//                }
+//
+//                Button(
+//                    onClick = { viewModel.startMocking() },
+//                    enabled = !uiState.isMocking && uiState.routePoints.isNotEmpty() // Needs route
+//                ) {
+//                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+//                    Spacer(modifier = Modifier.width(4.dp))
+//                    Text("Start")
+//                }
+//
+//                 Button(
+//                    onClick = { viewModel.stopMocking() },
+//                    enabled = uiState.isMocking
+//                ) {
+//                    Icon(Icons.Default.Close, contentDescription = null)
+//                    Spacer(modifier = Modifier.width(4.dp))
+//                    Text("Stop")
+//                }
+//            }
+//        }
+//    }
 }
