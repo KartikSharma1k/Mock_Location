@@ -24,6 +24,10 @@ class MainViewModel @Inject constructor(
         determineStartDestination()
     }
 
+    companion object{
+        val isLoading = MutableStateFlow(false)
+    }
+
     private fun determineStartDestination() {
         viewModelScope.launch {
             val onBoardingCompleted = dataStoreManager.onboardingCompleted.first()

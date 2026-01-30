@@ -26,7 +26,7 @@ class MockLocationService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
     private var isMocking = false
     private var routePoints: List<LatLng> = emptyList()
-    private var currentIndex = 0
+    private var speedKmh: Double = 60.0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -34,8 +34,10 @@ class MockLocationService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 val points = intent.getParcelableArrayListExtra<LatLng>(EXTRA_ROUTE)
+                val speed = intent.getDoubleExtra(EXTRA_SPEED, 60.0)
                 if (!points.isNullOrEmpty()) {
                     routePoints = points
+                    speedKmh = speed
                     startMocking()
                 }
             }
@@ -55,49 +57,80 @@ class MockLocationService : Service() {
             val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
             
             try {
+                // Remove existing if any, to ensure clean state
+                try { locationManager.removeTestProvider(LocationManager.GPS_PROVIDER) } catch (e: Exception) {}
+
                 locationManager.addTestProvider(
                     LocationManager.GPS_PROVIDER,
                     false, false, false, false, true, true, true, 0, 5
                 )
                 locationManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
             } catch (e: SecurityException) {
-                // Mock location permission not granted or app not selected
                 stopSelf()
                 return@launch
             } catch (e: IllegalArgumentException) {
-                 // Provider already exists?
+                 // Provider already exists
             }
 
-            while (isMocking && currentIndex < routePoints.size) {
-                val point = routePoints[currentIndex]
-                val mockLocation = Location(LocationManager.GPS_PROVIDER).apply {
-                    latitude = point.latitude
-                    longitude = point.longitude
-                    altitude = 0.0
-                    time = System.currentTimeMillis()
-                    accuracy = 5.0f
-                    elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        bearingAccuracyDegrees = 0.1f
-                        verticalAccuracyMeters = 0.1f
-                        speedAccuracyMetersPerSecond = 0.1f
-                    }
+            var currentPoint = routePoints[0]
+            var targetPointIndex = 1
+            // Convert speed to m/s
+            val speedMps = speedKmh / 3.6
+            val updateInterval = 1000L // 1 second update
+
+            // Push initial point
+            pushMockLocation(locationManager, currentPoint)
+
+            while (isMocking && targetPointIndex < routePoints.size) {
+                val targetPoint = routePoints[targetPointIndex]
+                val results = floatArrayOf(0f)
+                Location.distanceBetween(
+                    currentPoint.latitude, currentPoint.longitude,
+                    targetPoint.latitude, targetPoint.longitude,
+                    results
+                )
+                val distanceToTarget = results[0]
+                val distancePerStep = speedMps * (updateInterval / 1000.0)
+
+                if (distanceToTarget > distancePerStep) {
+                    // Interpolate
+                    val fraction = distancePerStep / distanceToTarget
+                    val newLat = currentPoint.latitude + (targetPoint.latitude - currentPoint.latitude) * fraction
+                    val newLng = currentPoint.longitude + (targetPoint.longitude - currentPoint.longitude) * fraction
+                    currentPoint = LatLng(newLat, newLng)
+                    
+                    pushMockLocation(locationManager, currentPoint)
+                } else {
+                    // Reached target (or close enough), snap to target and move to next
+                    currentPoint = targetPoint
+                    pushMockLocation(locationManager, currentPoint)
+                    targetPointIndex++
                 }
 
-                try {
-                    locationManager.setTestProviderLocation(LocationManager.GPS_PROVIDER, mockLocation)
-                } catch (e: Exception) {
-                    // Handle error
-                }
-
-                currentIndex++
-                // Loop or stop? For now let's just stop at end or loop?
-                // Step 0: Linear interpolation would yield many points. 
-                // Currently just jumping between defined points. 
-                // Ideally we interpolate here.
-                delay(1000) 
+                delay(updateInterval)
             }
             stopMocking()
+        }
+    }
+
+    private fun pushMockLocation(locationManager: LocationManager, point: LatLng) {
+        val mockLocation = Location(LocationManager.GPS_PROVIDER).apply {
+            latitude = point.latitude
+            longitude = point.longitude
+            altitude = 0.0
+            time = System.currentTimeMillis()
+            accuracy = 5.0f
+            elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                bearingAccuracyDegrees = 10f
+                verticalAccuracyMeters = 1f
+                speedAccuracyMetersPerSecond = 1f
+            }
+        }
+        try {
+            locationManager.setTestProviderLocation(LocationManager.GPS_PROVIDER, mockLocation)
+        } catch (e: Exception) { 
+            // e.printStackTrace() 
         }
     }
 
@@ -124,7 +157,7 @@ class MockLocationService : Service() {
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Mock Location Active")
-            .setContentText("Simulating location movement...")
+            .setContentText("Simulating location movement ($speedKmh km/h)")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .build()
     }
@@ -133,6 +166,7 @@ class MockLocationService : Service() {
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
         const val EXTRA_ROUTE = "EXTRA_ROUTE"
+        const val EXTRA_SPEED = "EXTRA_SPEED"
         const val NOTIFICATION_ID = 1
     }
 }

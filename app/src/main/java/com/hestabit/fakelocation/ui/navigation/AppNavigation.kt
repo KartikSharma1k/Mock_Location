@@ -2,12 +2,15 @@ package com.hestabit.fakelocation.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.hestabit.fakelocation.ui.screens.LocationViewModel
 import com.hestabit.fakelocation.ui.screens.AuthScreen
 import com.hestabit.fakelocation.ui.screens.DashboardScreen
 import com.hestabit.fakelocation.ui.screens.DeveloperInstructionsScreen
+import com.hestabit.fakelocation.ui.screens.FullScreenMapScreen
 import com.hestabit.fakelocation.ui.screens.IntroScreen
 import com.hestabit.fakelocation.ui.screens.PermissionsScreen
 
@@ -15,7 +18,8 @@ import com.hestabit.fakelocation.ui.screens.PermissionsScreen
 fun AppNavigation(
     navController: NavHostController,
     startDestination: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    locationViewModel: LocationViewModel = hiltViewModel()
 ) {
     NavHost(
         navController = navController,
@@ -62,8 +66,32 @@ fun AppNavigation(
             )
         }
 
-        composable(Screen.Dashboard.route) {
-            DashboardScreen()
+        composable(Screen.Dashboard.route) { entry ->
+            val savedStateHandle = entry.savedStateHandle
+            val selectedLocation = savedStateHandle.get<com.google.android.gms.maps.model.LatLng>("selected_location")
+            
+            // Clear the result after consumption if needed, or rely on LaunchedEffect key change
+            // savedStateHandle.remove<LatLng>("selected_location") 
+            
+            DashboardScreen(
+                viewModel = locationViewModel,
+                onExpandMap = { action ->
+                    locationViewModel.setMapAction(action)
+                    navController.navigate(Screen.FullScreenMap.route)
+                },
+                selectedLocationResult = selectedLocation
+            )
+        }
+        
+        composable(Screen.FullScreenMap.route) {
+            FullScreenMapScreen(
+                viewModel = locationViewModel,
+//                onLocationSelected = { latLng ->
+//                    navController.previousBackStackEntry?.savedStateHandle?.set("selected_location", latLng)
+//                    navController.popBackStack()
+//                },
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

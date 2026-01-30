@@ -25,4 +25,10 @@ abstract class RepositoryModule {
     abstract fun bindMockLocationRepository(
         mockLocationRepositoryImpl: MockLocationRepositoryImpl
     ): MockLocationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSavedLocationRepository(
+        savedLocationRepositoryImpl: com.hestabit.fakelocation.data.repository.SavedLocationRepositoryImpl
+    ): com.hestabit.fakelocation.data.repository.SavedLocationRepository
 }

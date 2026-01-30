@@ -13,10 +13,11 @@ class MockLocationRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context
 ) : MockLocationRepository {
 
-    override fun startMocking(route: List<LatLng>) {
+    override fun startMocking(route: List<LatLng>, speedKmh: Double) {
         val intent = Intent(context, MockLocationService::class.java).apply {
             action = MockLocationService.ACTION_START
             putParcelableArrayListExtra(MockLocationService.EXTRA_ROUTE, ArrayList(route))
+            putExtra(MockLocationService.EXTRA_SPEED, speedKmh)
         }
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             context.startForegroundService(intent)

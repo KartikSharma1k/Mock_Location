@@ -25,7 +25,7 @@ class AuthViewModel @Inject constructor(
     fun sendOtp(phoneNumber: String, activity: Activity) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            authRepository.sendOtp(phoneNumber, activity).collect { result ->
+            authRepository.sendOtp("+91$phoneNumber", activity).collect { result ->
                 when (result) {
                     is OtpResult.CodeSent -> {
                         verificationId = result.verificationId

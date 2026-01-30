@@ -6,6 +6,7 @@ sealed class Screen(val route: String) {
     object Permissions : Screen("permissions")
     object DeveloperInstructions : Screen("developer_instructions")
     object Dashboard : Screen("dashboard")
+    object FullScreenMap : Screen("full_screen_map")
 }
 
 object NavArgs {
