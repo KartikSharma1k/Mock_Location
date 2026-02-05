@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
-import com.google.api.Context
 import com.hestabit.fakelocation.MockLocationController
 import com.hestabit.fakelocation.data.enums.MapAction
 import com.hestabit.fakelocation.data.model.SavedLocation
@@ -38,6 +37,9 @@ class LocationViewModel @Inject constructor(
     var selectedMapAction = MapAction.FREE_LOOK
         private set
 
+    private val _isMocking = MutableStateFlow(false)
+    val isMocking = _isMocking.asStateFlow()
+
     private val _fullMapUiState = MutableStateFlow<MapUIState>(MapUIState())
     val fullMapUiState = _fullMapUiState.asStateFlow()
 
@@ -56,6 +58,15 @@ class LocationViewModel @Inject constructor(
     fun updateUIState(newState: MapUIState){
         viewModelScope.launch {
             _fullMapUiState.emit(newState)
+        }
+    }
+
+    fun setMockLocation(latitude: Double?, longitude: Double?){
+        viewModelScope.launch {
+            enableMocking()
+            val success = mockController.setMockLocation(latitude ?: 0.0, longitude ?: 0.0)
+            _isMocking.emit(success)
+            _locationState.value = if (success) "Mock location set" else "Failed to set mock location"
         }
     }
 
@@ -100,10 +111,10 @@ class LocationViewModel @Inject constructor(
     fun disableMocking() {
         viewModelScope.launch {
             try {
-                mockController.stopRouteSimulation()
-                val success = mockController.enableMockMode(false)
+                val success = mockController.stopRouteSimulationAndDisable()
                 _locationState.value = if (success) "Mock mode disabled" else "Failed to disable mock mode"
                 _routeProgress.value = "No route active"
+                _isMocking.emit(false)
             } catch (e: Exception) {
                 _locationState.value = "Error: ${e.message}"
             }
@@ -117,6 +128,7 @@ class LocationViewModel @Inject constructor(
                 _locationState.value = "Force refreshing location..."
                 val success = mockController.forceLocationRefresh()
                 _locationState.value = if (success) "Refreshed" else "Refresh failed"
+                _isMocking.emit(!success)
             } catch (e: Exception) {
                 _locationState.value = "Refresh error: ${e.message}"
             }
@@ -129,34 +141,23 @@ class LocationViewModel @Inject constructor(
             try {
                 val origin = "${start.latitude},${start.longitude}"
                 val dest = "${end.latitude},${end.longitude}"
-                
                 val response = directionsApiService.getDirections(origin, dest, apiKey = apiKey)
-                
+
+                Log.d("Route map data", "startRoute: $response")
+
                 if (response.routes.isNotEmpty()) {
                     val points = PolylineUtils.decode(response.routes[0].overview_polyline.points)
-                    
+
                     _locationState.value = "Route fetched. Points: ${points.size}. Starting mock..."
-                    
-                    // We need to update MockLocationController to accept points list
-                    // For now, we assume mockController has a method or we'll add it. 
-                    // Let's assume simulateRoute(List<LatLng>) exists or we will add it.
-                    // The existing simulatesCustomRoute uses CustomLocations, we need to change that.
-                    
-                    // Wait, I need to update MockLocationController first or call a new method.
-                    // I'll call a new method `simulateRoute`.
-                    
-                    mockController.simulateRoute(
-                        points = points,
-                        speedKmh = speedKmh,
-                        onLocationUpdate = { point, index, total ->
-                             _routeProgress.value = "Route: ${index + 1}/$total"
-                        },
-                        onRouteComplete = {
-                             _routeProgress.value = "Route completed"
-                             _locationState.value = "Destination reached"
-                        }
-                    )
-                    
+
+                    val started = mockController.startRouteSimulation(points, speedKmh)
+                    if (started) {
+                        _isMocking.emit(true)
+                        _routeProgress.value = "Route started. Points: ${points.size}"
+                    } else {
+                        _locationState.value = "Failed to start route simulation"
+                    }
+
                 } else {
                     _locationState.value = "No route found"
                 }
@@ -167,8 +168,32 @@ class LocationViewModel @Inject constructor(
     }
     
     fun stopRoute() {
-        mockController.stopRouteSimulation()
-        _routeProgress.value = "Route stopped"
+        viewModelScope.launch {
+            try {
+                val disabled = mockController.stopRouteSimulationAndDisable()
+                _routeProgress.value = if (disabled) "Route stopped" else "Failed to stop route"
+                _isMocking.emit(false)
+            } catch (e: Exception) {
+                _locationState.value = "Error stopping route: ${e.message}"
+            }
+        }
+    }
+
+    // New helpers to be called by UI when the service broadcasts events (so UI can reflect state after app restart)
+    fun onSimulationStarted(pointsCount: Int) {
+        viewModelScope.launch {
+            _isMocking.emit(true)
+            _routeProgress.value = "Route started. Points: $pointsCount"
+            _locationState.value = "Simulation running"
+        }
+    }
+
+    fun onSimulationStopped() {
+        viewModelScope.launch {
+            _isMocking.emit(false)
+            _routeProgress.value = "No route active"
+            _locationState.value = "Simulation stopped"
+        }
     }
 
     override fun onCleared() {

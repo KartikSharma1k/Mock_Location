@@ -1,18 +1,18 @@
 package com.hestabit.fakelocation.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -23,8 +23,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,9 +38,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -49,6 +59,7 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.hestabit.fakelocation.data.enums.MapAction
 import com.hestabit.fakelocation.data.model.SavedLocation
+import com.hestabit.fakelocation.service.MockLocationService
 
 @Composable
 fun DashboardScreen(
@@ -60,14 +71,56 @@ fun DashboardScreen(
     val savedLocations by viewModel.savedLocations.collectAsState()
     val routeProgress by viewModel.routeProgress.collectAsState()
 
+    val isMocking by viewModel.isMocking.collectAsState()
+
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Register BroadcastReceiver to listen for MockLocationService start/stop events and forward to ViewModel
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                intent?.action?.let { action ->
+                    when (action) {
+                        MockLocationService.ACTION_SIMULATION_STARTED -> {
+                            val count = intent.getIntExtra(MockLocationService.EXTRA_POINTS_COUNT, 0)
+                            viewModel.onSimulationStarted(count)
+                        }
+                        MockLocationService.ACTION_SIMULATION_STOPPED -> {
+                            viewModel.onSimulationStopped()
+                        }
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(MockLocationService.ACTION_SIMULATION_STARTED)
+            addAction(MockLocationService.ACTION_SIMULATION_STOPPED)
+        }
+        // Register as not exported to avoid unprotected broadcast exposure
+        try {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } catch (e: Exception) {
+            // Fallback to legacy registration if flag not supported on older platforms
+            try { context.registerReceiver(receiver, filter) } catch (_: Exception) {}
+        }
+        onDispose {
+            try { context.unregisterReceiver(receiver) } catch (e: Exception) {}
+        }
+    }
+
+    // Read API key from manifest meta-data safely
+    val apiKey = remember {
+        try {
+            val ai: ApplicationInfo = context.packageManager.getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
+            ai.metaData?.getString("com.google.android.geo.API_KEY")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     // Handle result from FullScreenMap
-    // We can decide where to put it (Start or End). For now, let's auto-fill Start if empty, or End if Start exists.
-    // Or just putting it in 'selectedStart' if we were 'selecting start'. 
-    // To be simple: If result comes back, we pin it? Or set as Start?
-    // Let's set it as "Pinned Location" so user can decide what to do (Save or use as route point)
     val currentSelectedResult by rememberUpdatedState(
         selectedLocationResult
     )
@@ -87,11 +140,7 @@ fun DashboardScreen(
     }
 
     // Interaction State
-    // var isPinMode by remember { mutableStateOf(false) } // Removed duplicate
-    // var pinnedLocation by remember { mutableStateOf<LatLng?>(null) } // Removed duplicate
     var showSaveDialog by remember { mutableStateOf(false) }
-    var selectedStart by remember { mutableStateOf<LatLng?>(null) }
-    var selectedEnd by remember { mutableStateOf<LatLng?>(null) }
 
     // Dialog State
     var locationName by remember { mutableStateOf("") }
@@ -119,150 +168,14 @@ fun DashboardScreen(
                     scrollGesturesEnabled = false,
                     scrollGesturesEnabledDuringRotateOrZoom = false,
                 ),
-                onMapClick = { latLng ->
+                onMapClick = { _ ->
                     onExpandMap(MapAction.FREE_LOOK)
                 }
             ) {
                 pinnedLocation?.let {
                     Marker(state = MarkerState(position = it), title = "Pinned Location")
                 }
-                /*// Markers
-            pinnedLocation?.let {
-                Marker(state = MarkerState(position = it), title = "Pinned Location", icon = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_VIOLET))
             }
-            selectedStart?.let {
-                Marker(state = MarkerState(position = it), title = "Start", icon = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN))
-            }
-            selectedEnd?.let {
-                Marker(state = MarkerState(position = it), title = "End", icon = com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_RED))
-            }*/
-            }
-
-            /*                //Top Status Bar
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .align(Alignment.TopCenter),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(
-                    alpha = 0.9f
-                )
-            )
-        ) {
-            Text(
-                text = if (routeProgress != "No route active") routeProgress else locationState,
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
-        // Bottom Controls
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                .padding(16.dp)
-        ) {
-            // Saved Locations List
-            if (savedLocations.isNotEmpty()) {
-                Text(
-                    "Saved Locations",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 8.dp)
-                ) {
-                    items(savedLocations) { location ->
-                        SavedLocationItem(location) {
-                            scope.launch {
-                                cameraPositionState.animate(
-                                    CameraUpdateFactory.newLatLngZoom(
-                                        LatLng(
-                                            location.latitude,
-                                            location.longitude
-                                        ), 15f
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Button(onClick = {
-                    selectedStart = null
-                    selectedEnd = null
-                    pinnedLocation = null
-                    viewModel.stopRoute()
-                }) {
-                    Text("Clear")
-                }
-
-                Button(
-                    onClick = {
-                        if (selectedStart != null && selectedEnd != null) {
-                            // TODO: API KEY from usage or config
-                            val apiKey = "YOUR_API_KEY"
-                            viewModel.startRoute(selectedStart!!, selectedEnd!!, apiKey)
-                        }
-                    },
-                    enabled = selectedStart != null && selectedEnd != null
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Mock Route")
-                }
-
-                Button(onClick = { viewModel.stopRoute() }) {
-                    Text("Stop Mock")
-                }
-
-                Button(onClick = onExpandMap) {
-                    Text("Expand")
-                }
-            }
-        }
-
-        // Add Location FAB
-        FloatingActionButton(
-            onClick = { isPinMode = !isPinMode },
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(
-                    end = 16.dp,
-                    bottom = 250.dp
-                ), // Adjust position above bottom sheet
-            containerColor = if (isPinMode) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-        ) {
-            Icon(
-                if (isPinMode) Icons.Default.Close else Icons.Default.Add,
-                contentDescription = "Add Location"
-            )
-        }
-
-        if (isPinMode) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                    .padding(8.dp)
-            ) {
-                Text("Tap map to pin location", color = Color.White)
-            }
-        }*/
-
 
             if (savedLocations.isNullOrEmpty()) {
                 Text("No saved locations found")
@@ -281,58 +194,44 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Button(modifier = Modifier.fillMaxWidth().height(60.dp),onClick = {}) {
-                Text("Start Mocking")
+            Button(modifier = Modifier.fillMaxWidth().height(60.dp),onClick = {
+                if (!isMocking) viewModel.setMockLocation(pinnedLocation?.latitude, pinnedLocation?.longitude)
+                else viewModel.disableMocking()
+            }) {
+                Text(if (isMocking) "Stop Mocking" else "Start Mocking")
             }
         }
-        FloatingActionButton(
-            onClick = {
-                onExpandMap(MapAction.ADD_NEW_LOCATION)
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Location")
-        }
 
-        /*    // Save Dialog
-            if (showSaveDialog) {
-                AlertDialog(
-                    onDismissRequest = { showSaveDialog = false },
-                    title = { Text("Save Location") },
-                    text = {
-                        Column {
-                            Text("Enter a name for this location:")
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = locationName,
-                                onValueChange = { locationName = it },
-                                label = { Text("Name") }
-                            )
+        // Replace single FAB with an Expandable FAB that rotates and shows labeled actions.
+        ExpandableFab(
+            fabIcon = Icons.Default.Add,
+            items = listOf(
+                FabOption(
+                    icon = Icons.Default.Add,
+                    label = "Add Location",
+                    onClick = { onExpandMap(MapAction.ADD_NEW_LOCATION) }
+                ),
+                FabOption(
+                    icon = Icons.Default.LocationOn,
+                    label = "Add Route",
+                    onClick = {
+                        // Guard: we need apiKey and a pinned location
+                        if (apiKey == null) {
+                            // show some UI or log
+                            return@FabOption
                         }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                pinnedLocation?.let {
-                                    viewModel.saveLocation(locationName, it.latitude, it.longitude)
-                                }
-                                showSaveDialog = false
-                                locationName = ""
-                                pinnedLocation = null // Clear pin after save? Or keep it?
-                            }
-                        ) {
-                            Text("Save")
+                        val start = pinnedLocation ?: run {
+                            // no pinned location; log and return
+                            return@FabOption
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showSaveDialog = false }) {
-                            Text("Cancel")
-                        }
+
+                        viewModel.startRoute(start, LatLng(28.6139, 77.2090), apiKey)
                     }
                 )
-            }*/
+            ),
+            modifier = Modifier.fillMaxSize(),
+            alignment = Alignment.BottomEnd
+        )
 
     }
 
@@ -357,6 +256,92 @@ fun DashboardScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(location.name, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+            }
+        }
+    }
+}
+
+// --- New helper types and composables for expandable FAB ---
+
+data class FabOption(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit
+)
+
+@Composable
+fun ExpandableFab(
+    fabIcon: ImageVector,
+    items: List<FabOption>,
+    modifier: Modifier = Modifier,
+    alignment: Alignment = Alignment.BottomEnd
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(targetValue = if (expanded) 45f else 0f)
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Fullscreen transparent overlay to collapse when tapping outside - placed before FABs
+        if (expanded) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { expanded = false }
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .wrapContentSize()
+                .align(alignment)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            // Action items (appear above main FAB)
+            items.forEachIndexed { index , item ->
+                AnimatedVisibility(
+                    visible = expanded,
+                    enter = slideInVertically { (it * (items.size - index))} + fadeIn(),
+                    exit = slideOutVertically { (it * (items.size - index))} + fadeOut()
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            tonalElevation = 2.dp,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text(
+                                text = item.label,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                        FloatingActionButton(
+                            shape = CircleShape,
+                            onClick = {
+                                item.onClick()
+                                expanded = false
+                            }
+                        ) {
+                            Icon(item.icon, contentDescription = item.label)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Main FAB (rotates when expanded)
+            FloatingActionButton(
+                shape = CircleShape,
+                onClick = { expanded = !expanded }
+            ) {
+                Icon(
+                    fabIcon,
+                    contentDescription = "Open actions",
+                    modifier = Modifier.rotate(rotation)
+                )
             }
         }
     }
