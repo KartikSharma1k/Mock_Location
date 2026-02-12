@@ -50,13 +50,13 @@ class MainActivity : ComponentActivity() {
                 val startDestination by viewModel.startDestination.collectAsState()
 
                 if (startDestination != null) {
-                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
                         val navController = rememberNavController()
                         Box() {
                             AppNavigation(
                                 navController = navController,
                                 startDestination = startDestination!!,
-                                modifier = Modifier.padding(innerPadding)
+                                modifier = Modifier
                             )
 
                             if(isLoading){
