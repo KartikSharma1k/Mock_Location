@@ -5,12 +5,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,7 +45,6 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -71,7 +68,12 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 
 // New Places imports
 import com.google.android.libraries.places.api.Places
@@ -117,10 +119,6 @@ fun DashboardScreen(
         }
     }
 
-    // NOTE: removed the runtime BroadcastReceiver registration (was used to listen to MockLocationService events)
-    // This was causing a lint error about missing RECEIVER_NOT_EXPORTED on older API levels; re-add with proper
-    // modern registration if you need the feature. For search/autocomplete this is not required.
-
     // Read API key from manifest meta-data safely
     val apiKey = remember {
         try {
@@ -159,16 +157,17 @@ fun DashboardScreen(
     // Dialog State
     var locationName by remember { mutableStateOf("") }
 
+    val scaffoldState = rememberBottomSheetScaffoldState()
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Mock Location") }, actions = {
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.Settings, contentDescription = "Setting button")
-            }
-        })
-    }) { paddingValues ->
+    BottomSheetScaffold(
+        sheetPeekHeight = 0.dp,
+        scaffoldState = scaffoldState,
+        sheetContent = {
+            // Do NOT use another ModalBottomSheet here - just provide sheet content
+            DashboardBottomSheet()
+        }) { _ ->
 
-        Box(modifier = Modifier.padding(paddingValues)) {
+        Box(modifier = Modifier) {
 
             Column(
                 modifier = Modifier
@@ -178,22 +177,25 @@ fun DashboardScreen(
 
                 GoogleMap(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight()
+                        .fillMaxSize()
                         .clip(RoundedCornerShape(8.dp)),
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(isMyLocationEnabled = true),
                     uiSettings = MapUiSettings(
-                        myLocationButtonEnabled = true,
+                        myLocationButtonEnabled = false,
                     ),
                     onMapClick = { loc ->
                         pinnedLocation = loc
                     }
                 ) {
                     pinnedLocation?.let {
-                        Marker(state = MarkerState(position = it), title = "Pinned Location", onClick = {
-                            true
-                        })
+                        Marker(
+                            state = MarkerState(position = it),
+                            title = "Pinned Location",
+                            onClick = {
+                                true
+                            }
+                        )
                     }
                 }
             }
@@ -205,6 +207,12 @@ fun DashboardScreen(
                     .align(Alignment.BottomStart)
                     .padding(start = 16.dp, bottom = 24.dp),
                 placesClient = placesClient,
+                // pass an open-sheet callback that expands the scaffold sheet
+                openSheet = {
+                    scope.launch {
+                        scaffoldState.bottomSheetState.expand()
+                    }
+                },
                 onPredictionSelected = { prediction ->
                     // When user selects a prediction, fetch place details and move camera
                     val placeId = prediction.placeId
@@ -213,20 +221,33 @@ fun DashboardScreen(
                     try {
                         placesClient?.fetchPlace(request)
                             ?.addOnSuccessListener { response ->
-                                val latLng = response.place?.latLng
+                                val latLng = response.place.latLng
                                 if (latLng != null) {
                                     val found = LatLng(latLng.latitude, latLng.longitude)
                                     pinnedLocation = found
-                                    cameraPositionState.position = CameraPosition.fromLatLngZoom(found, 15f)
+                                    cameraPositionState.position =
+                                        CameraPosition.fromLatLngZoom(found, 15f)
                                 } else {
-                                    Toast.makeText(context, "Place details not available", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(
+                                        context,
+                                        "Place details not available",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
                             ?.addOnFailureListener { ex ->
-                                Toast.makeText(context, "Failed to get place: ${ex.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    context,
+                                    "Failed to get place: ${ex.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Failed to get place: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Failed to get place: ${e.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 },
                 onSearch = { query ->
@@ -242,12 +263,18 @@ fun DashboardScreen(
                                 val addr = results[0]
                                 val found = LatLng(addr.latitude, addr.longitude)
                                 pinnedLocation = found
-                                cameraPositionState.position = CameraPosition.fromLatLngZoom(found, 15f)
+                                cameraPositionState.position =
+                                    CameraPosition.fromLatLngZoom(found, 15f)
                             } else {
-                                Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Location not found", Toast.LENGTH_SHORT)
+                                    .show()
                             }
                         } catch (e: Exception) {
-                            Toast.makeText(context, "Search failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Search failed: ${e.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 }
@@ -372,11 +399,14 @@ fun ExpandableFab(
 }
 
 // New composable: MapSearchBar with Places suggestions
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapSearchBar(
     modifier: Modifier = Modifier,
     hint: String = "Search location",
     placesClient: PlacesClient? = null,
+    // replaced sheet state param with a simple callback to open the scaffold sheet
+    openSheet: () -> Unit = {},
     onPredictionSelected: (AutocompletePrediction) -> Unit = {},
     onSearch: (String) -> Unit = {}
 ) {
@@ -385,6 +415,7 @@ fun MapSearchBar(
     var showDropdown by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
 
+    val coroutineScope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
     val token = remember { AutocompleteSessionToken.newInstance() }
@@ -395,18 +426,23 @@ fun MapSearchBar(
     Box(modifier = modifier, contentAlignment = Alignment.BottomStart) {
         // overlay that collapses when tapping outside
         if (expanded) {
-            Box(modifier = Modifier
-                .matchParentSize()
-                .clickable { expanded = false; focusManager.clearFocus() })
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable { expanded = false; focusManager.clearFocus() })
         }
 
         Surface(
-            color = MaterialTheme.colorScheme.surface,
+            color = if (!expanded) Color.Transparent else MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
             shape = RoundedCornerShape(if (expanded) 24.dp else 28.dp),
             modifier = Modifier
                 .animateContentSize()
-                .then(if (expanded) Modifier.fillMaxWidth() else Modifier.size(collapsedSize))
+                .then(
+                    if (expanded) Modifier.fillMaxWidth() else Modifier
+                        .height(collapsedSize)
+                        .width((collapsedSize * 2) + 10.dp)
+                )
                 .zIndex(1f)
                 .clip(RoundedCornerShape(if (expanded) 24.dp else 28.dp))
         ) {
@@ -414,7 +450,10 @@ fun MapSearchBar(
                 // collapsed circular button
                 val _ctx = LocalContext.current
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
                             .size(collapsedSize)
@@ -435,7 +474,10 @@ fun MapSearchBar(
                             .size(collapsedSize)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primaryContainer)
-                            .clickable { },
+                            .clickable {
+                                // use provided callback to open the scaffold sheet
+                                openSheet()
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -447,7 +489,10 @@ fun MapSearchBar(
                 }
 
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
                     TextField(
                         value = query,
                         onValueChange = { new ->
@@ -517,9 +562,16 @@ fun MapSearchBar(
                             }
                             .padding(12.dp)
                     ) {
-                        Text(prediction.getPrimaryText(null).toString(), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            prediction.getPrimaryText(null).toString(),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                         val second = prediction.getSecondaryText(null).toString()
-                        if (second.isNotBlank()) Text(second, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (second.isNotBlank()) Text(
+                            second,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -527,4 +579,19 @@ fun MapSearchBar(
 
         LaunchedEffect(expanded) { if (expanded) focusRequester.requestFocus() }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardBottomSheet(modifier: Modifier = Modifier) {
+    // Use plain sheet content (no nested ModalBottomSheet) so the scaffold controls the scrim/gestures
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surface) {
+        Box(modifier = Modifier
+            .fillMaxWidth()
+            .height(240.dp)
+            .padding(16.dp)) {
+            // Sheet content placeholder (keep minimal to avoid accidental full-screen intercepts)
+        }
+    }
+
 }
