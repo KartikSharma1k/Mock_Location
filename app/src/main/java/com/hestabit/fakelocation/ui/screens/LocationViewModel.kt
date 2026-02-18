@@ -43,6 +43,9 @@ class LocationViewModel @Inject constructor(
     private val _fullMapUiState = MutableStateFlow<MapUIState>(MapUIState())
     val fullMapUiState = _fullMapUiState.asStateFlow()
 
+    private val _pinnedLocation = MutableStateFlow<LatLng?>(null)
+    val pinnedLocation = _pinnedLocation.asStateFlow()
+
     init {
         observeSavedLocations()
     }
@@ -85,6 +88,10 @@ class LocationViewModel @Inject constructor(
                 isLoading.emit(false)
             }
         }
+    }
+
+    fun setPinnedLocation(location: LatLng?){
+        _pinnedLocation.value = location
     }
     
     fun deleteLocation(id: String) {
