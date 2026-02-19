@@ -7,5 +7,6 @@ data class SavedLocation(
     val name: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    val favourite: Boolean = false,
     val createdAt: Timestamp = Timestamp.now()
 )

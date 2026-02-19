@@ -15,6 +15,7 @@ interface SavedLocationRepository {
     fun getSavedLocations(): Flow<List<SavedLocation>>
     suspend fun saveLocation(name: String, latitude: Double, longitude: Double): Result<Boolean>
     suspend fun deleteLocation(locationId: String): Result<Boolean>
+    suspend fun toggleFavourite(locationId: String, favourite: Boolean): Result<Boolean>
 }
 
 @Singleton
@@ -61,7 +62,8 @@ class SavedLocationRepositoryImpl @Inject constructor(
                 id = newLocationRef.id,
                 name = name,
                 latitude = latitude,
-                longitude = longitude
+                longitude = longitude,
+                favourite = false
             )
 
             newLocationRef.set(location).await()
@@ -80,6 +82,22 @@ class SavedLocationRepositoryImpl @Inject constructor(
                 .collection("saved_locations")
                 .document(locationId)
                 .delete()
+                .await()
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun toggleFavourite(locationId: String, favourite: Boolean): Result<Boolean> {
+        return try {
+            val user = auth.currentUser ?: return Result.failure(Exception("User not logged in"))
+
+            firestore.collection("users")
+                .document(user.uid)
+                .collection("saved_locations")
+                .document(locationId)
+                .update("favourite", favourite)
                 .await()
             Result.success(true)
         } catch (e: Exception) {

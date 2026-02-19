@@ -92,7 +92,7 @@ fun MovingMockLocationTab(
 
         items(savedLocations) { location ->
 
-            RecentLocationItem(location, onClose = { latLng, name ->
+            RecentLocationItem(location = location, onClose = { latLng, name ->
                 if (startPoint != null && endPoint != null) {
                     onClose(startCord)
                 } else {

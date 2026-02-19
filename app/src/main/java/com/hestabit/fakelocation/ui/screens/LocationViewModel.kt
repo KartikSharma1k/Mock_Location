@@ -100,6 +100,12 @@ class LocationViewModel @Inject constructor(
         }
     }
 
+    fun toggleFavourite(id: String, favourite: Boolean) {
+        viewModelScope.launch {
+            savedLocationRepository.toggleFavourite(id, favourite)
+        }
+    }
+
     fun setMapAction(action: MapAction){
         selectedMapAction = action
     }

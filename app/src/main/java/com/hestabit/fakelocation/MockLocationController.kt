@@ -97,6 +97,7 @@ class MockLocationController @Inject constructor(
     ): Boolean {
         // Ensure mock mode is enabled first (with retries)
         val mockEnabled = ensureMockModeEnabled()
+        fusedMockModeEnabledByController = mockEnabled
         if (!mockEnabled) return false
 
         val mockLocation = Location(LocationManager.GPS_PROVIDER).apply {
