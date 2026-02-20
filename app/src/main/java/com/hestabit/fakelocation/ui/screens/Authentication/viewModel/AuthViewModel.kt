@@ -1,8 +1,11 @@
-package com.hestabit.fakelocation.ui.screens
+package com.hestabit.fakelocation.ui.screens.Authentication.viewModel
 
 import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.PhoneAuthProvider
+import com.hestabit.fakelocation.data.local.DataStoreManager
+import com.hestabit.fakelocation.data.model.ParticleSpec
 import com.hestabit.fakelocation.data.repository.AuthRepository
 import com.hestabit.fakelocation.data.repository.OtpResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +17,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
+    private val dataStoreManager: DataStoreManager,
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
@@ -21,14 +25,30 @@ class AuthViewModel @Inject constructor(
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     private var verificationId: String? = null
+    private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
+
+    fun resetResendToken(){
+        verificationId = null
+        resendToken = null
+    }
+
+    val authParticleSpecs = List(6) { i ->
+        ParticleSpec(
+            xFrac      = ((i * 137 + 23) % 100) / 100f,
+            yFrac      = ((i * 97  + 41) % 100) / 100f,
+            durationMs = 3000 + (i * 400 % 2000),
+            delayMs    = (i * 300 % 2000)
+        )
+    }
 
     fun sendOtp(phoneNumber: String, activity: Activity) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            authRepository.sendOtp("+91$phoneNumber", activity).collect { result ->
+            authRepository.sendOtp(phoneNumber, activity, resendToken).collect { result ->
                 when (result) {
                     is OtpResult.CodeSent -> {
                         verificationId = result.verificationId
+                        resendToken = result.token
                         _uiState.value = AuthUiState.OtpSent
                     }
                     is OtpResult.Error -> {
@@ -53,11 +73,22 @@ class AuthViewModel @Inject constructor(
             _uiState.value = AuthUiState.Loading
             val result = authRepository.verifyOtp(currentVerificationId, code)
             result.onSuccess {
+                completeAuthentication()
                 _uiState.value = AuthUiState.Success
             }.onFailure {
                 _uiState.value = AuthUiState.Error(it.message ?: "Verification failed")
             }
         }
+    }
+
+    fun completeAuthentication() {
+        viewModelScope.launch {
+            dataStoreManager.setAuthCompleted(true)
+        }
+    }
+
+    fun resetToIdle() {
+        _uiState.value = AuthUiState.Idle
     }
 }
 

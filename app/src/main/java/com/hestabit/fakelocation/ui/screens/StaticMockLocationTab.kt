@@ -61,18 +61,18 @@ fun StaticMockLocationTab(
     LazyColumn(modifier = modifier) {
 
         item {
-            if(savedLocations.any { location -> location.favourite })
-            Text(
-                "Favourite Locations",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(vertical = 20.dp),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (savedLocations.any { location -> location.favourite })
+                Text(
+                    "Favourite Locations",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 20.dp),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
         }
 
         items(savedLocations, key = { "fav-${it.id}" }) { location ->
-            if(location.favourite) {
+            if (location.favourite) {
                 RecentLocationItem(
                     modifier = Modifier.padding(bottom = 10.dp),
                     location = location,
@@ -83,24 +83,24 @@ fun StaticMockLocationTab(
         }
 
         item {
-            if(savedLocations.any { location -> !location.favourite })
-            Text(
-                "Saved Locations",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(vertical = 20.dp),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (savedLocations.any { location -> !location.favourite })
+                Text(
+                    "Saved Locations",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 20.dp),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
         }
 
         items(savedLocations, key = { it.id }) { location ->
-            if(!location.favourite)
-            RecentLocationItem(
-                modifier = Modifier.padding(bottom = 10.dp),
-                location = location,
-                onClose = { latLng, _ -> onClose(latLng) },
-                viewModel = viewModel
-            )
+            if (!location.favourite)
+                RecentLocationItem(
+                    modifier = Modifier.padding(bottom = 10.dp),
+                    location = location,
+                    onClose = { latLng, _ -> onClose(latLng) },
+                    viewModel = viewModel
+                )
         }
 
         item {
@@ -129,11 +129,13 @@ fun RecentLocationItem(
                     viewModel.deleteLocation(location.id)
                     true
                 }
+
                 SwipeToDismissBoxValue.StartToEnd -> {
                     // Swipe RIGHT → Toggle favourite
                     viewModel.toggleFavourite(location.id, !location.favourite)
                     true // Reset back to initial position
                 }
+
                 else -> false
             }
         },
@@ -200,13 +202,13 @@ fun RecentLocationItem(
             }
 
             // Favourite indicator icon on the right side of the card
-            if(location.favourite)
-            Icon(
-                imageVector = if (location.favourite) Icons.Filled.Star else Icons.Outlined.Star,
-                contentDescription = if (location.favourite) "Favourited" else "Not favourited",
-                tint = if (location.favourite) Color(0xFFFFC107) else Color.LightGray,
-                modifier = Modifier.size(22.dp)
-            )
+            if (location.favourite)
+                Icon(
+                    imageVector = if (location.favourite) Icons.Filled.Star else Icons.Outlined.Star,
+                    contentDescription = if (location.favourite) "Favourited" else "Not favourited",
+                    tint = if (location.favourite) Color(0xFFFFC107) else Color.LightGray,
+                    modifier = Modifier.size(22.dp)
+                )
         }
     }
 }
@@ -224,8 +226,8 @@ private fun SwipeBackground(targetValue: SwipeToDismissBoxValue) {
     val backgroundColor by animateColorAsState(
         targetValue = when {
             isFavouriteSwipe -> Color(0xFFFFC107)   // Amber / Gold
-            isDeleteSwipe    -> Color(0xFFE53935)   // Red
-            else             -> Color.Transparent
+            isDeleteSwipe -> Color(0xFFE53935)   // Red
+            else -> Color.Transparent
         },
         animationSpec = tween(durationMillis = 300),
         label = "swipe_bg_color"
@@ -254,6 +256,7 @@ private fun SwipeBackground(targetValue: SwipeToDismissBoxValue) {
                     .size(28.dp)
                     .scale(iconScale)
             )
+
             isDeleteSwipe -> Icon(
                 imageVector = Icons.Filled.Delete,
                 contentDescription = "Delete",

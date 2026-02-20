@@ -17,7 +17,7 @@ import javax.inject.Singleton
 
 interface AuthRepository {
     val isUserAuthenticated: Boolean
-    fun sendOtp(phoneNumber: String, activity: Activity): Flow<OtpResult>
+    fun sendOtp(phoneNumber: String, activity: Activity, resendToken: PhoneAuthProvider.ForceResendingToken?): Flow<OtpResult>
     suspend fun verifyOtp(verificationId: String, code: String): Result<Boolean>
 }
 
@@ -36,7 +36,7 @@ class AuthRepositoryImpl @Inject constructor(
     override val isUserAuthenticated: Boolean
         get() = auth.currentUser != null
 
-    override fun sendOtp(phoneNumber: String, activity: Activity): Flow<OtpResult> = callbackFlow {
+    override fun sendOtp(phoneNumber: String, activity: Activity, resendToken: PhoneAuthProvider.ForceResendingToken?): Flow<OtpResult> = callbackFlow {
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                 // Determine if we should sign in automatically or let UI handle it.
@@ -68,12 +68,22 @@ class AuthRepositoryImpl @Inject constructor(
             }
         }
 
-        val options = PhoneAuthOptions.newBuilder(auth)
-            .setPhoneNumber(phoneNumber)
-            .setTimeout(60L, TimeUnit.SECONDS)
-            .setActivity(activity)
-            .setCallbacks(callbacks)
-            .build()
+        val options = if(resendToken == null) {
+            PhoneAuthOptions.newBuilder(auth)
+                .setPhoneNumber(phoneNumber)
+                .setTimeout(60L, TimeUnit.SECONDS)
+                .setActivity(activity)
+                .setCallbacks(callbacks)
+                .build()
+        }else {
+            PhoneAuthOptions.newBuilder(auth)
+                .setPhoneNumber(phoneNumber)
+                .setTimeout(60L, TimeUnit.SECONDS)
+                .setActivity(activity)
+                .setCallbacks(callbacks)
+                .setForceResendingToken(resendToken)
+                .build()
+        }
         
         PhoneAuthProvider.verifyPhoneNumber(options)
         

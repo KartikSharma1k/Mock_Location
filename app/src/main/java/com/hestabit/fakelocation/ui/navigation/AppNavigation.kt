@@ -7,11 +7,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.hestabit.fakelocation.ui.screens.LocationViewModel
-import com.hestabit.fakelocation.ui.screens.AuthScreen
+import com.hestabit.fakelocation.ui.screens.Authentication.screens.AuthScreen
 import com.hestabit.fakelocation.ui.screens.DashboardScreen
 import com.hestabit.fakelocation.ui.screens.DeveloperInstructionsScreen
 import com.hestabit.fakelocation.ui.screens.FullScreenMapScreen
-import com.hestabit.fakelocation.ui.screens.IntroScreen
+import com.hestabit.fakelocation.ui.screens.Onboarding.screens.IntroScreen
 import com.hestabit.fakelocation.ui.screens.PermissionsScreen
 
 @Composable

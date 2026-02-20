@@ -32,6 +32,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val onBoardingCompleted = dataStoreManager.onboardingCompleted.first()
             val devInstructionsCompleted = dataStoreManager.devInstructionsCompleted.first()
+            val authCompleted = dataStoreManager.authCompleted.first()
             
             // TODO: Add Auth check here when AuthRepository is ready
             // For now assuming:
@@ -39,6 +40,8 @@ class MainViewModel @Inject constructor(
 
             if (!onBoardingCompleted) {
                 _startDestination.value = Screen.Intro.route
+            }else if (!authCompleted){
+                _startDestination.value = Screen.Auth.route
             } else if (!devInstructionsCompleted) {
                  // Check permissions here as well ideally
                 _startDestination.value = Screen.DeveloperInstructions.route

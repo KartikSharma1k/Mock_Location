@@ -16,6 +16,7 @@ class DataStoreManager(private val context: Context) {
     companion object {
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val KEY_DEV_INSTRUCTIONS_COMPLETED = booleanPreferencesKey("dev_instructions_completed")
+        val KEY_AUTH_COMPLETED = booleanPreferencesKey("auth_completed")
     }
 
     val onboardingCompleted: Flow<Boolean> = context.dataStore.data
@@ -27,6 +28,18 @@ class DataStoreManager(private val context: Context) {
         .map { preferences ->
             preferences[KEY_DEV_INSTRUCTIONS_COMPLETED] ?: false
         }
+
+    val authCompleted: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[KEY_AUTH_COMPLETED] ?: false
+        }
+
+
+    suspend fun setAuthCompleted(completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_AUTH_COMPLETED] = completed
+        }
+    }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {
         context.dataStore.edit { preferences ->

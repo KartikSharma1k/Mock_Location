@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
 
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.compose.material.icons.core.android)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
